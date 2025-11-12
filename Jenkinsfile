@@ -1,55 +1,54 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    WEBEX_BOT_TOKEN = credentials('WEBEX_BOT_TOKEN') // stored in Jenkins credentials
-    WEBEX_ROOM_ID = credentials('WEBEX_ROOM_ID')
-  }
+    stages {
+        stage('Checkout') {
+            steps {
+                // Pull code from GitHub
+                checkout scm
+            }
+        }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+        stage('Setup Python Environment') {
+            steps {
+                // Set up and install pytest
+                sh '''
+                python -m venv venv
+                source venv/bin/activate
+                pip install --upgrade pip pytest
+                '''
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                // Run your Python unit tests
+                sh '''
+                source venv/bin/activate
+                pytest --maxfail=1 --disable-warnings -q
+                '''
+            }
+        }
     }
 
-    stage('Install dependencies') {
-      steps {
-        sh 'python3 -m venv venv || true'
-        sh '. venv/bin/activate && pip install -r requirements.txt'
-      }
-    }
+    post {
+        always {
+            script {
+                // Prepare the WebEx message
+                def message = [
+                    roomId: 'Y2lzY29zcGFyazovL3VybjpURUFNOnVzLXdlc3QtMl9yL1JPT00vZjQwNTQ5MjAtYmY2My0xMWYwLTgyNmMtYmIyN2IwZjdiOTM2',
+                    markdown: "✅ Jenkins build for *${env.JOB_NAME}* #${env.BUILD_NUMBER} completed with status: *${currentBuild.currentResult}*"
+                ]
 
-    stage('Run tests') {
-      steps {
-        sh '. venv/bin/activate && pytest -q'
-      }
+                // Send message to WebEx
+                httpRequest(
+                    httpMode: 'POST',
+                    contentType: 'APPLICATION_JSON',
+                    url: 'https://webexapis.com/v1/messages',
+                    customHeaders: [[name: 'Authorization', value: 'Bearer ZmMxYWY5M2EtNzZkNS00Yjk3LTgwNjAtMmM5MzlmNGI4OGQzYzc5NjY2YjMtMTEz_P0A1_13494cac-24b4-4f89-8247-193cc92a7636']],
+                    requestBody: groovy.json.JsonOutput.toJson(message)
+                )
+            }
+        }
     }
-  }
-
-  post {
-    success {
-      script {
-        def msg = "✅ Build SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|open>)"
-        sh """
-          curl -s -X POST "https://webexapis.com/v1/messages" \
-          -H "Authorization: Bearer ${WEBEX_BOT_TOKEN}" \
-          -H "Content-Type: application/json" \
-          -d '{"roomId":"${WEBEX_ROOM_ID}","markdown":"${msg}"}'
-        """
-      }
-    }
-
-    failure {
-      script {
-        def msg = "❌ Build FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|open>)"
-        sh """
-          curl -s -X POST "https://webexapis.com/v1/messages" \
-          -H "Authorization: Bearer ${WEBEX_BOT_TOKEN}" \
-          -H "Content-Type: application/json" \
-          -d '{"roomId":"${WEBEX_ROOM_ID}","markdown":"${msg}"}'
-        """
-      }
-    }
-  }
 }
