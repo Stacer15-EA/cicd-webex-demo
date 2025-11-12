@@ -10,4 +10,4 @@ if __name__ == "__main__":
     print("5 + 3 =", add(5, 3))
     print("5 - 3 =", subtract(5, 3))
 
-print("Hi there!")
+print("This is a simple demo application for CI/CD with WebEx notifications.")
