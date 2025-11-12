@@ -11,4 +11,3 @@ if __name__ == "__main__":
     print("5 - 3 =", subtract(5, 3))
 
 print("Hi there!")
-
